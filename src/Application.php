@@ -60,22 +60,40 @@ class Application extends \Silex\Application
                 'password' => $this['smtp.dsn']['pass'],
                 'encryption' => in_array($this['smtp.dsn']['scheme'], ['ssl', 'tls']) ? $this['smtp.dsn']['scheme'] : null,
             ]]);
+
+            // Override $app['mailer'] to avoid using Swift_SpoolTransport(). Instead
+            // we send the mails directly to the EsmtpTransport (SMTP), so that any
+            // errors will not go unnoticed.
+            $this['mailer'] = $this->share(
+                function ($app) {
+                    $mailer = new \Swift_Mailer($app['swiftmailer.transport']);
+
+                    // Register plugin that puts style into tags for stupid mail client i.e. gmail
+                    $converter = new \TijsVerkoyen\CssToInlineStyles\CssToInlineStyles();
+                    $converter->setUseInlineStylesBlock();
+                    $converter->setStripOriginalStyleTags();
+
+                    $mailer->registerPlugin(new \Openbuildings\Swiftmailer\CssInlinerPlugin($converter));
+                    return $mailer;
+                }
+            );
         }
-        // Override $app['mailer'] to avoid using Swift_SpoolTransport(). Instead
-        // we send the mails directly to the EsmtpTransport (SMTP), so that any
-        // errors will not go unnoticed.
-        $this['mailer'] = $this->share(
-            function ($app) {
-                $mailer = new \Swift_Mailer($app['swiftmailer.transport']);
+    }
 
-                // Register plugin that puts style into tags for stupid mail client i.e. gmail
-                $converter = new \TijsVerkoyen\CssToInlineStyles\CssToInlineStyles();
-                $converter->setUseInlineStylesBlock();
-                $converter->setStripOriginalStyleTags();
-
-                $mailer->registerPlugin(new \Openbuildings\Swiftmailer\CssInlinerPlugin($converter));
-                return $mailer;
-            }
-        );
+    /**
+     * Ensure that database connection and Postfix connection are not dead.
+     *
+     * This is necessary for long-running jobs.
+     */
+    public function pingConnections()
+    {
+        $db = $this['db'];
+        if ($db->isConnected() && !$db->ping()) {
+            $db->close();
+        }
+        $transport = $this['mailer']->getTransport();
+        if ($transport->isStarted()) {
+            $transport->stop();
+        }
     }
 }

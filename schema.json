@@ -4,6 +4,7 @@
     "properties": {
         "subject": {"type": "string"},
         "body": {"type": "string"},
+        "contentType": {"type": "string"},
         "recipients": {
             "type": "array",
             "items": {
@@ -21,6 +22,7 @@
     "required": [
         "subject",
         "body",
+        "contentType",
         "recipients"
     ]
 }

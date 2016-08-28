@@ -15,6 +15,8 @@ class MessageQueueService
         $app = $this->app;
         $this->app['mq.client']->subscribe("mail", function ($payload) use ($app) {
             print "message received: $payload\n";
+            $this->app->pingConnections();
+
             $message = json_decode($payload);
             try {
                 $this->app['jsonschema']['message']->validate($message);
